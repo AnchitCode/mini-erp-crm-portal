@@ -62,8 +62,11 @@ export interface AddMovementRequest {
 }
 
 export async function getProductsApi(query: ProductQuery = {}): Promise<ProductListResponse> {
-  const res = await api.get<ApiResponse<ProductListResponse>>('/products', { params: query });
-  return res.data.data;
+  const res = await api.get<ApiResponse<Product[]> & { meta?: ProductListResponse['meta'] }>('/products', { params: query });
+  return {
+    products: (res.data.data as any) || [],
+    meta: res.data.meta || { page: 1, limit: 10, total: 0, totalPages: 1 },
+  };
 }
 
 export async function getProductByIdApi(id: string): Promise<ProductDetail> {

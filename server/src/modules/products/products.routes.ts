@@ -10,19 +10,17 @@ import {
 
 const router = Router();
 
-// Implementation Assumption: Admin and Warehouse roles can fully manage products and stock.
-// Sales read-access will be handled in Phase 4 when Challans are implemented.
+// All product endpoints require authentication
 router.use(authenticate);
-router.use(authorize('Admin', 'Warehouse'));
 
-router.route('/')
-  .get(getProductsHandler)
-  .post(createProductHandler);
+// Read-only routes: Admin, Warehouse, AND Sales (Sales needs product data for Challans)
+router.get('/', authorize('Admin', 'Warehouse', 'Sales'), getProductsHandler);
+router.get('/:id', authorize('Admin', 'Warehouse', 'Sales'), getProductByIdHandler);
 
-router.route('/:id')
-  .get(getProductByIdHandler)
-  .put(updateProductHandler);
-
-router.post('/:id/movements', addMovementHandler);
+// Write routes: Admin and Warehouse only
+router.post('/', authorize('Admin', 'Warehouse'), createProductHandler);
+router.put('/:id', authorize('Admin', 'Warehouse'), updateProductHandler);
+router.post('/:id/movements', authorize('Admin', 'Warehouse'), addMovementHandler);
 
 export default router;
+

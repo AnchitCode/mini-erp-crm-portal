@@ -8,6 +8,9 @@ import CustomersPage from './pages/customers/CustomersPage';
 import CustomerDetailPage from './pages/customers/CustomerDetailPage';
 import ProductsPage from './pages/products/ProductsPage';
 import ProductDetailPage from './pages/products/ProductDetailPage';
+import ChallansPage from './pages/challans/ChallansPage';
+import CreateChallanPage from './pages/challans/CreateChallanPage';
+import ChallanDetailPage from './pages/challans/ChallanDetailPage';
 
 /** Redirect authenticated users away from login page */
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -54,8 +57,14 @@ function AppRoutes() {
             <Route path=":id" element={<ProductDetailPage />} />
           </Route>
 
-          {/* Phase 4 placeholder routes */}
-          <Route path="/challans/*" element={<PlaceholderPage title="Sales Challans" />} />
+          {/* Sales Challan Module - Phase 4 */}
+          <Route path="/challans" element={<RoleRoute allowedRoles={['Admin', 'Sales', 'Accounts']} />}>
+            <Route index element={<ChallansPage />} />
+            <Route path=":id" element={<ChallanDetailPage />} />
+          </Route>
+          <Route path="/challans/new" element={<RoleRoute allowedRoles={['Admin', 'Sales']} />}>
+            <Route index element={<CreateChallanPage />} />
+          </Route>
         </Route>
       </Route>
 
@@ -65,17 +74,6 @@ function AppRoutes() {
   );
 }
 
-/** Temporary placeholder for pages not yet built */
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <div className="card">
-      <div className="card-body" style={{ textAlign: 'center', padding: '60px 24px' }}>
-        <h2 style={{ color: 'var(--color-text-muted)', marginBottom: '8px' }}>{title}</h2>
-        <p style={{ color: 'var(--color-text-muted)' }}>This module will be built in the next phase.</p>
-      </div>
-    </div>
-  );
-}
 
 export default function App() {
   return (

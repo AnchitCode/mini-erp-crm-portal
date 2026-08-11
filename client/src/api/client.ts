@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
 
 /**
  * Pre-configured Axios instance for all API calls.
@@ -6,8 +6,17 @@ import axios from 'axios';
  * - Auto-attaches JWT token from localStorage
  * - Auto-redirects to login on 401
  */
+const configuredBaseUrl = import.meta.env.VITE_API_URL?.trim();
+const baseUrlCandidates = configuredBaseUrl
+  ? [configuredBaseUrl]
+  : ['http://localhost:5000/api', 'http://localhost:5001/api'];
+
+interface RetriableRequestConfig extends AxiosRequestConfig {
+  __baseUrlRetryCount?: number;
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: baseUrlCandidates[0],
   headers: {
     'Content-Type': 'application/json',
   },
@@ -28,7 +37,20 @@ api.interceptors.request.use(
 // Response interceptor: handle 401 globally
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error: AxiosError) => {
+    const originalRequest = error.config as RetriableRequestConfig | undefined;
+
+    if (!error.response && originalRequest) {
+      const retryCount = originalRequest.__baseUrlRetryCount ?? 0;
+      const nextBaseUrl = baseUrlCandidates[retryCount + 1];
+
+      if (nextBaseUrl) {
+        originalRequest.__baseUrlRetryCount = retryCount + 1;
+        originalRequest.baseURL = nextBaseUrl;
+        return api.request(originalRequest);
+      }
+    }
+
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -37,6 +59,7 @@ api.interceptors.response.use(
         window.location.href = '/login';
       }
     }
+
     return Promise.reject(error);
   }
 );

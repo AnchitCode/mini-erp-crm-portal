@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import axios from 'axios';
 
 const DEMO_ACCOUNTS = [
   { role: 'Admin', email: 'admin@erp.com' },
@@ -27,8 +28,12 @@ export default function LoginPage() {
       await login({ email, password });
       navigate('/', { replace: true });
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      setError(axiosErr.response?.data?.message || 'Login failed. Please try again.');
+      if (axios.isAxiosError(err) && !err.response) {
+        setError('Unable to reach the backend API. Check that the server is running and the API URL matches the backend port.');
+      } else {
+        const axiosErr = err as { response?: { data?: { message?: string } } };
+        setError(axiosErr.response?.data?.message || 'Login failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }

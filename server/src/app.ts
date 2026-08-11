@@ -7,6 +7,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import authRoutes from './modules/auth/auth.routes';
 import customerRoutes from './modules/customers/customers.routes';
 import productRoutes from './modules/products/products.routes';
+import challanRoutes from './modules/challans/challans.routes';
 
 const app = express();
 
@@ -52,7 +53,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/customers', customerRoutes);   // Phase 2
 app.use('/api/products', productRoutes);     // Phase 3
-// app.use('/api/challans', challanRoutes);     // Phase 4
+app.use('/api/challans', challanRoutes);      // Phase 4
 
 // ---------------------------------------------------------------------------
 // Error Handling (must be last)

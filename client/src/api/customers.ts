@@ -3,6 +3,8 @@ import type { ApiResponse } from './auth';
 
 export type CustomerType = 'Retail' | 'Wholesale' | 'Distributor';
 export type CustomerStatus = 'Lead' | 'Active' | 'Inactive';
+// ... rest remains same until getCustomersApi
+
 
 export interface Customer {
   id: string;
@@ -65,8 +67,13 @@ export type CreateCustomerRequest = Omit<Customer, 'id' | 'createdAt' | 'updated
 export type UpdateCustomerRequest = Partial<CreateCustomerRequest>;
 
 export async function getCustomersApi(query: CustomerQuery = {}): Promise<CustomerListResponse> {
-  const res = await api.get<ApiResponse<CustomerListResponse>>('/customers', { params: query });
-  return res.data.data;
+  const res = await api.get<ApiResponse<Customer[]> & { meta?: CustomerListResponse['meta'] }>('/customers', {
+    params: query,
+  });
+  return {
+    customers: res.data.data || [],
+    meta: res.data.meta || { page: 1, limit: 10, total: 0, totalPages: 1 },
+  };
 }
 
 export async function getCustomerByIdApi(id: string): Promise<CustomerDetail> {

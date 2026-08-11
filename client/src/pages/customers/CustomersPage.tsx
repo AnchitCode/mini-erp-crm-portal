@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCustomersApi, createCustomerApi, updateCustomerApi, type Customer, type CustomerQuery, type CustomerType, type CustomerStatus, type CustomerListResponse } from '../../api/customers';
+import { getCustomersApi, createCustomerApi, updateCustomerApi } from '../../api/customers';
+import type { Customer, CustomerQuery, CustomerType, CustomerStatus, CustomerListResponse } from '../../api/customers';
 
 export default function CustomersPage() {
   const navigate = useNavigate();
