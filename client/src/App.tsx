@@ -1,9 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { PrivateRoute } from './components/PrivateRoute';
+import { PrivateRoute, RoleRoute } from './components/PrivateRoute';
 import Layout from './components/Layout';
 import LoginPage from './pages/auth/LoginPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
+import CustomersPage from './pages/customers/CustomersPage';
+import CustomerDetailPage from './pages/customers/CustomerDetailPage';
 
 /** Redirect authenticated users away from login page */
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -38,8 +40,13 @@ function AppRoutes() {
         <Route element={<Layout />}>
           <Route path="/" element={<DashboardPage />} />
 
-          {/* Phase 2–4 placeholder routes */}
-          <Route path="/customers/*" element={<PlaceholderPage title="Customers" />} />
+          {/* Customer CRM Module - Phase 2 */}
+          <Route path="/customers" element={<RoleRoute allowedRoles={['Admin', 'Sales']} />}>
+            <Route index element={<CustomersPage />} />
+            <Route path=":id" element={<CustomerDetailPage />} />
+          </Route>
+
+          {/* Phase 3–4 placeholder routes */}
           <Route path="/products/*" element={<PlaceholderPage title="Products & Inventory" />} />
           <Route path="/challans/*" element={<PlaceholderPage title="Sales Challans" />} />
         </Route>

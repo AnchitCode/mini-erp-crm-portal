@@ -5,6 +5,7 @@ import { config } from './config';
 import requestLogger from './middleware/requestLogger';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import authRoutes from './modules/auth/auth.routes';
+import customerRoutes from './modules/customers/customers.routes';
 
 const app = express();
 
@@ -48,7 +49,7 @@ app.get('/api/health', (_req, res) => {
 // ---------------------------------------------------------------------------
 
 app.use('/api/auth', authRoutes);
-// app.use('/api/customers', customerRoutes);   // Phase 2
+app.use('/api/customers', customerRoutes);   // Phase 2
 // app.use('/api/products', productRoutes);     // Phase 3
 // app.use('/api/challans', challanRoutes);     // Phase 4
 
