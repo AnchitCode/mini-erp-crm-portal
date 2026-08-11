@@ -1,0 +1,205 @@
+// ---------------------------------------------------------------------------
+// Mini ERP + CRM Operations Portal — Database Schema
+// ---------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  Admin
+  Sales
+  Warehouse
+  Accounts
+}
+
+enum CustomerType {
+  Retail
+  Wholesale
+  Distributor
+}
+
+enum CustomerStatus {
+  Lead
+  Active
+  Inactive
+}
+
+enum MovementType {
+  IN
+  OUT
+}
+
+enum ChallanStatus {
+  Draft
+  Confirmed
+  Cancelled
+}
+
+// ---------------------------------------------------------------------------
+// Users — Authentication & role-based access
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         UserRole @default(Sales)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  followUpNotes  FollowUpNote[]
+  stockMovements StockMovement[]
+  challans       Challan[]
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Customers — CRM module
+// ---------------------------------------------------------------------------
+
+model Customer {
+  id           String         @id @default(uuid())
+  name         String
+  mobile       String
+  email        String
+  businessName String         @map("business_name")
+  gstNumber    String?        @map("gst_number")
+  customerType CustomerType   @map("customer_type")
+  address      String
+  status       CustomerStatus @default(Lead)
+  followUpDate DateTime?      @map("follow_up_date") @db.Date
+  notes        String?
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  followUpNotes FollowUpNote[]
+  challans      Challan[]
+
+  // Indexes for search performance
+  @@index([mobile])
+  @@index([businessName])
+  @@index([status])
+  @@map("customers")
+}
+
+// ---------------------------------------------------------------------------
+// Follow-Up Notes — CRM activity log per customer
+// ---------------------------------------------------------------------------
+
+model FollowUpNote {
+  id         String   @id @default(uuid())
+  customerId String   @map("customer_id")
+  createdById String  @map("created_by")
+  note       String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  customer  Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdBy User     @relation(fields: [createdById], references: [id])
+
+  @@index([customerId])
+  @@map("follow_up_notes")
+}
+
+// ---------------------------------------------------------------------------
+// Products — Inventory module
+// ---------------------------------------------------------------------------
+
+model Product {
+  id                String   @id @default(uuid())
+  name              String
+  sku               String   @unique
+  category          String
+  unitPrice         Decimal  @map("unit_price") @db.Decimal(10, 2)
+  currentStock      Int      @default(0) @map("current_stock")
+  minStockAlert     Int      @default(0) @map("min_stock_alert")
+  warehouseLocation String   @map("warehouse_location")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  stockMovements StockMovement[]
+  challanItems   ChallanItem[]
+
+  @@index([category])
+  @@map("products")
+}
+
+// ---------------------------------------------------------------------------
+// Stock Movements — Audit trail for inventory changes
+// ---------------------------------------------------------------------------
+
+model StockMovement {
+  id              String       @id @default(uuid())
+  productId       String       @map("product_id")
+  quantityChanged Int          @map("quantity_changed")
+  movementType    MovementType @map("movement_type")
+  reason          String
+  createdById     String       @map("created_by")
+  createdAt       DateTime     @default(now()) @map("created_at")
+
+  // Relations
+  product   Product @relation(fields: [productId], references: [id])
+  createdBy User    @relation(fields: [createdById], references: [id])
+
+  @@index([productId])
+  @@map("stock_movements")
+}
+
+// ---------------------------------------------------------------------------
+// Challans — Sales challan header
+// ---------------------------------------------------------------------------
+
+model Challan {
+  id            String        @id @default(uuid())
+  challanNumber String        @unique @map("challan_number")
+  customerId    String        @map("customer_id")
+  totalQuantity Int           @default(0) @map("total_quantity")
+  status        ChallanStatus @default(Draft)
+  createdById   String        @map("created_by")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  customer  Customer      @relation(fields: [customerId], references: [id])
+  createdBy User          @relation(fields: [createdById], references: [id])
+  items     ChallanItem[]
+
+  @@index([customerId])
+  @@index([status])
+  @@map("challans")
+}
+
+// ---------------------------------------------------------------------------
+// Challan Items — Line items with product snapshot data
+// ---------------------------------------------------------------------------
+
+model ChallanItem {
+  id                  String  @id @default(uuid())
+  challanId           String  @map("challan_id")
+  productId           String  @map("product_id")
+  productNameSnapshot String  @map("product_name_snapshot")
+  productSkuSnapshot  String  @map("product_sku_snapshot")
+  unitPriceSnapshot   Decimal @map("unit_price_snapshot") @db.Decimal(10, 2)
+  quantity            Int
+
+  // Relations
+  challan Challan @relation(fields: [challanId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([challanId])
+  @@map("challan_items")
+}
