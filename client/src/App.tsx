@@ -6,6 +6,8 @@ import LoginPage from './pages/auth/LoginPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import CustomersPage from './pages/customers/CustomersPage';
 import CustomerDetailPage from './pages/customers/CustomerDetailPage';
+import ProductsPage from './pages/products/ProductsPage';
+import ProductDetailPage from './pages/products/ProductDetailPage';
 
 /** Redirect authenticated users away from login page */
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -46,8 +48,13 @@ function AppRoutes() {
             <Route path=":id" element={<CustomerDetailPage />} />
           </Route>
 
-          {/* Phase 3–4 placeholder routes */}
-          <Route path="/products/*" element={<PlaceholderPage title="Products & Inventory" />} />
+          {/* Inventory Module - Phase 3 */}
+          <Route path="/products" element={<RoleRoute allowedRoles={['Admin', 'Warehouse']} />}>
+            <Route index element={<ProductsPage />} />
+            <Route path=":id" element={<ProductDetailPage />} />
+          </Route>
+
+          {/* Phase 4 placeholder routes */}
           <Route path="/challans/*" element={<PlaceholderPage title="Sales Challans" />} />
         </Route>
       </Route>
