@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { config } from './config';
 import requestLogger from './middleware/requestLogger';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import authRoutes from './modules/auth/auth.routes';
 
 const app = express();
 
@@ -43,13 +44,13 @@ app.get('/api/health', (_req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// API Routes (will be registered in Phase 1–4)
+// API Routes
 // ---------------------------------------------------------------------------
 
-// app.use('/api/auth', authRoutes);
-// app.use('/api/customers', customerRoutes);
-// app.use('/api/products', productRoutes);
-// app.use('/api/challans', challanRoutes);
+app.use('/api/auth', authRoutes);
+// app.use('/api/customers', customerRoutes);   // Phase 2
+// app.use('/api/products', productRoutes);     // Phase 3
+// app.use('/api/challans', challanRoutes);     // Phase 4
 
 // ---------------------------------------------------------------------------
 // Error Handling (must be last)
