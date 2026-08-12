@@ -1,7 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
 import { PrivateRoute, RoleRoute } from './components/PrivateRoute';
 import Layout from './components/Layout';
+import ErrorBoundary from './components/ErrorBoundary';
 import LoginPage from './pages/auth/LoginPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import CustomersPage from './pages/customers/CustomersPage';
@@ -11,6 +13,7 @@ import ProductDetailPage from './pages/products/ProductDetailPage';
 import ChallansPage from './pages/challans/ChallansPage';
 import CreateChallanPage from './pages/challans/CreateChallanPage';
 import ChallanDetailPage from './pages/challans/ChallanDetailPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 /** Redirect authenticated users away from login page */
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -69,7 +72,7 @@ function AppRoutes() {
       </Route>
 
       {/* Catch-all */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }
@@ -77,10 +80,14 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <ToastProvider>
+            <AppRoutes />
+          </ToastProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }

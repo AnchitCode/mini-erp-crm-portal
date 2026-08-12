@@ -21,7 +21,7 @@ export default function ProductsPage() {
       setProducts(data.products);
       setMeta(data.meta);
       setError('');
-    } catch (err: any) {
+    } catch (err) {
       setError('Failed to load products');
     } finally {
       setLoading(false);
@@ -60,8 +60,8 @@ export default function ProductsPage() {
       }
       setIsModalOpen(false);
       fetchProducts();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Error saving product');
+    } catch (err) {
+      alert((err as any).response?.data?.message || 'Error saving product');
     }
   };
 
@@ -185,7 +185,7 @@ export default function ProductsPage() {
   );
 }
 
-function ProductModal({ product, onClose, onSave }: { product: Product | null, onClose: () => void, onSave: (data: any) => void }) {
+function ProductModal({ product, onClose, onSave }: { product: Product | null, onClose: () => void, onSave: (data: Partial<Product>) => void }) {
   const [formData, setFormData] = useState({
     name: product?.name || '',
     sku: product?.sku || '',
@@ -197,7 +197,7 @@ function ProductModal({ product, onClose, onSave }: { product: Product | null, o
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    onSave({ ...formData, unitPrice: Number(formData.unitPrice) });
   };
 
   return (

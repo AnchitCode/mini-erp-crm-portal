@@ -5,7 +5,6 @@ import * as challanService from './challans.service';
 
 export async function createChallanHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    console.log("INCOMING PAYLOAD:", JSON.stringify(req.body));
     const input = createChallanSchema.parse(req.body);
     const challan = await challanService.createChallan(input, req.user!.userId);
     sendSuccess(res, challan, 'Challan created as Draft.', 201);

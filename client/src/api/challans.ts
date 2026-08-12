@@ -93,7 +93,7 @@ export async function getChallansApi(query: ChallanQuery = {}): Promise<ChallanL
 
   const res = await api.get<ApiResponse<ChallanSummary[]> & { meta?: ChallanListResponse['meta'] }>(`/challans?${params.toString()}`);
   return {
-    challans: (res.data.data as any) || [],
+    challans: res.data.data || [],
     meta: res.data.meta || { page: 1, limit: 10, total: 0, totalPages: 1 },
   };
 }
@@ -104,7 +104,6 @@ export async function getChallanByIdApi(id: string): Promise<ChallanDetail> {
 }
 
 export async function createChallanApi(data: CreateChallanRequest): Promise<ChallanDetail> {
-  console.log("SENDING CHALLAN:", data);
   const res = await api.post<ApiResponse<ChallanDetail>>('/challans', data);
   return res.data.data;
 }

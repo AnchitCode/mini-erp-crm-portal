@@ -26,7 +26,7 @@ export default function ProductDetailPage() {
       const data = await getProductByIdApi(productId);
       setProduct(data);
       setError('');
-    } catch (err: any) {
+    } catch (err) {
       setError('Failed to load product details');
     } finally {
       setLoading(false);
@@ -50,8 +50,8 @@ export default function ProductDetailPage() {
       setMovementType('IN');
       // Reload product to get updated stock and timeline
       await loadProduct(id);
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to record stock movement');
+    } catch (err) {
+      alert((err as any)?.response?.data?.message || 'Error recording movement');
     } finally {
       setMoveLoading(false);
     }

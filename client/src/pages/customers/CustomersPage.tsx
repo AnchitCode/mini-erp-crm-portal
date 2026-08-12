@@ -22,7 +22,7 @@ export default function CustomersPage() {
       setCustomers(data.customers);
       setMeta(data.meta);
       setError('');
-    } catch (err: any) {
+    } catch (err) {
       setError('Failed to load customers');
     } finally {
       setLoading(false);
@@ -65,8 +65,8 @@ export default function CustomersPage() {
       }
       setIsModalOpen(false);
       fetchCustomers();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Error saving customer');
+    } catch (err) {
+      alert((err as any).response?.data?.message || 'Error saving customer');
     }
   };
 
@@ -188,7 +188,7 @@ export default function CustomersPage() {
   );
 }
 
-function CustomerModal({ customer, onClose, onSave }: { customer: Customer | null, onClose: () => void, onSave: (data: any) => void }) {
+function CustomerModal({ customer, onClose, onSave }: { customer: Customer | null, onClose: () => void, onSave: (data: Partial<Customer>) => void }) {
   const [formData, setFormData] = useState({
     name: customer?.name || '',
     mobile: customer?.mobile || '',

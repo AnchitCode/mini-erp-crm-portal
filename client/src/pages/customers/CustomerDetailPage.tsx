@@ -24,7 +24,7 @@ export default function CustomerDetailPage() {
       const data = await getCustomerByIdApi(customerId);
       setCustomer(data);
       setError('');
-    } catch (err: any) {
+    } catch (err) {
       setError('Failed to load customer details');
     } finally {
       setLoading(false);
@@ -40,8 +40,8 @@ export default function CustomerDetailPage() {
       await addFollowUpNoteApi(id, note);
       setNote('');
       await loadCustomer(id); // reload to get new note
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to add note');
+    } catch (err) {
+      alert((err as any).response?.data?.message || 'Error saving note');
     } finally {
       setNoteLoading(false);
     }

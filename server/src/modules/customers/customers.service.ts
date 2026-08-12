@@ -22,6 +22,7 @@ export async function createCustomer(input: CreateCustomerInput) {
       customerType: input.customerType,
       address: input.address,
       status: input.status,
+      followUpDate: input.followUpDate,
       notes: input.notes,
     },
   });
@@ -106,6 +107,9 @@ export async function updateCustomer(id: string, input: UpdateCustomerInput) {
   if (input.email) data.email = input.email.toLowerCase();
   if (input.gstNumber !== undefined) {
     data.gstNumber = input.gstNumber?.trim() || null;
+  }
+  if (input.followUpDate !== undefined) {
+    data.followUpDate = input.followUpDate;
   }
 
   return prisma.customer.update({

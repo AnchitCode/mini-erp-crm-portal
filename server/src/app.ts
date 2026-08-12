@@ -8,6 +8,7 @@ import authRoutes from './modules/auth/auth.routes';
 import customerRoutes from './modules/customers/customers.routes';
 import productRoutes from './modules/products/products.routes';
 import challanRoutes from './modules/challans/challans.routes';
+import dashboardRoutes from './modules/dashboard/dashboard.routes';
 
 const app = express();
 
@@ -54,6 +55,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/customers', customerRoutes);   // Phase 2
 app.use('/api/products', productRoutes);     // Phase 3
 app.use('/api/challans', challanRoutes);      // Phase 4
+app.use('/api/dashboard', dashboardRoutes);
 
 // ---------------------------------------------------------------------------
 // Error Handling (must be last)

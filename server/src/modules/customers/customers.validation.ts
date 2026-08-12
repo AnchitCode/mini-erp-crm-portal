@@ -21,6 +21,7 @@ export const createCustomerSchema = z.object({
   }),
   address: z.string({ error: 'Address is required' }).min(5, 'Address is too short'),
   status: z.nativeEnum(CustomerStatus).optional().default(CustomerStatus.Lead),
+  followUpDate: z.coerce.date().optional(),
   notes: z.string().optional(),
 });
 

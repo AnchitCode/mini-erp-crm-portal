@@ -1,165 +1,324 @@
 # Mini ERP + CRM Operations Portal
 
-A full-stack ERP/CRM system for a wholesale/distribution company, managing customers, products, stock, sales challans, and basic CRM follow-ups.
+A full-stack enterprise resource planning (ERP) and customer relationship management (CRM) portal built for wholesale and distribution companies. This system manages customer relationships, tracks product inventory, records auditable stock movements, and securely processes sales challans using concurrency-safe database transactions.
+
+![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)
+![Express.js](https://img.shields.io/badge/Express.js-404D59?style=for-the-badge)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white)
+
+## Overview
+
+Wholesale distribution involves tight coupling between sales operations and warehouse inventory. This application bridges that gap by providing a unified, role-based dashboard where sales teams can manage clients and issue challans, while warehouse teams can monitor stock alerts and log inventory movements. The backend prioritizes data integrity, ensuring that stock deductions are strictly atomic and fully auditable.
+
+## Key Features
+
+### Authentication & RBAC
+* **JWT-based Authentication**: Stateless, secure user sessions.
+* **Role-Based Access Control**: Strict access boundaries enforcing least-privilege principles across four distinct roles (Admin, Sales, Warehouse, Accounts).
+* **Password Security**: Passwords are securely hashed via `bcryptjs`.
+
+### Customer CRM
+* **Lead & Contact Management**: Full CRUD operations for tracking customers (Retail, Wholesale, Distributor).
+* **Search & Filter**: Paginated, server-side filtering for rapid customer lookups.
+* **Activity Timeline**: Append-only follow-up notes to maintain a chronological history of client interactions.
+
+### Product & Inventory
+* **Catalog Management**: Real-time tracking of product SKUs, pricing, and categorizations.
+* **Immutable Stock Audit Log**: All stock variations (IN/OUT) are permanently recorded with timestamps, user IDs, and justifications.
+* **Low-Stock Visibility**: Automatic calculation and highlighting of products breaching minimum stock thresholds.
+
+### Sales Challans (Core Engine)
+* **Lifecycle State Machine**: Challans progress through `Draft` → `Confirmed` → `Cancelled` states.
+* **Data Snapshots**: Line items capture historical product data (Name, SKU, Price) at the time of creation to insulate historical records from future catalog changes.
+* **Concurrency-Safe Deductions**: Confirming a challan executes an atomic database transaction that unconditionally prevents stock from dropping below zero, automatically rejecting racing requests.
+* **Reversible Operations**: Canceling a confirmed challan transactionally restores product stock and automatically generates an accompanying `IN` stock movement for the audit log.
+
+### Dashboard & UX
+* **Role-Tailored Overviews**: Sales sees CRM metrics; Warehouse sees low-stock alerts; Admins see a holistic business summary.
+* **Responsive Polish**: A responsive React interface featuring global error boundaries, 404 handling, loading spinners, and toast notifications for asynchronous operations.
+
+---
+
+## Engineering Highlights
+
+### Transactional & Atomic Stock Safety
+The most critical business requirement is preventing negative inventory when multiple sales agents confirm challans simultaneously. 
+Instead of relying on a naive `SELECT` followed by an `UPDATE` (which is vulnerable to race conditions), the backend uses **conditional atomic updates** via Prisma:
+
+```typescript
+await tx.product.updateMany({
+  where: {
+    id: item.productId,
+    currentStock: { gte: item.quantity }, // Condition checked atomically at execution
+  },
+  data: { currentStock: { decrement: item.quantity } },
+});
+```
+If this update affects zero rows, the transaction safely aborts and alerts the user of a stock conflict, guaranteeing 100% data integrity under heavy concurrency.
+
+### Strong Typing & Validation
+- **Zod Schemas**: Every API boundary is guarded by strict `zod` validation schemas.
+- **Shared Contracts**: Frontend TypeScript interfaces directly mirror the backend Zod inference types, ensuring compile-time safety across the network boundary.
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Browser[Browser / React UI]
+    subgraph Frontend [React + Vite]
+        UI[Components/Pages]
+        APIClient[Axios API Client]
+        UI --> APIClient
+    end
+    
+    subgraph Backend [Node.js + Express]
+        Auth[RBAC Middleware]
+        Modules[Feature Controllers]
+        Validation[Zod Validation]
+        Auth --> Validation
+        Validation --> Modules
+    end
+    
+    subgraph Database [PostgreSQL]
+        ORM[Prisma ORM]
+        DB[(PostgreSQL)]
+        ORM --> DB
+    end
+
+    Browser -->|JWT via HTTP| Frontend
+    APIClient -->|REST API| Auth
+    Modules --> ORM
+```
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| **Backend** | Node.js · TypeScript · Express.js |
-| **Database** | PostgreSQL · Prisma ORM |
-| **Frontend** | React · TypeScript · Vite |
-| **Auth** | JWT (role-based access) |
+| Layer | Technology | Purpose |
+|---|---|---|
+| **Frontend UI** | React 18, Vite | Component-based, lightning-fast HMR builds |
+| **Frontend Routing** | React Router v6 | Client-side routing and protected routes |
+| **Backend Server** | Node.js, Express.js | High-performance asynchronous REST APIs |
+| **Database ORM** | Prisma | Type-safe database queries and migrations |
+| **Database** | PostgreSQL | Relational data integrity and ACID transactions |
+| **Validation** | Zod | Runtime schema validation for all API inputs |
+| **Testing** | Node:test | Native backend testing for concurrency logic |
+
+---
+
+## Database Design
+
+```mermaid
+erDiagram
+    USER ||--o{ CHALLAN : creates
+    USER ||--o{ STOCK_MOVEMENT : creates
+    USER ||--o{ FOLLOW_UP_NOTE : creates
+    
+    CUSTOMER ||--o{ CHALLAN : has
+    CUSTOMER ||--o{ FOLLOW_UP_NOTE : tracks
+    
+    PRODUCT ||--o{ CHALLAN_ITEM : included_in
+    PRODUCT ||--o{ STOCK_MOVEMENT : logs
+    
+    CHALLAN ||--|{ CHALLAN_ITEM : contains
+```
+
+## Core Business Workflow: Challan Confirmation
+
+The system's focal point is the sales transaction workflow. It ensures that stock is only deducted if available, and that every change leaves a permanent audit trail.
+
+```mermaid
+sequenceDiagram
+    participant S as Sales User
+    participant API as Backend API
+    participant DB as PostgreSQL
+    
+    S->>API: PATCH /api/challans/:id/confirm
+    activate API
+    API->>DB: BEGIN TRANSACTION
+    API->>DB: Verify Challan is 'Draft'
+    API->>DB: Pre-validate stock levels
+    
+    alt Insufficient Stock
+        API-->>DB: ROLLBACK
+        API-->>S: 400 Bad Request (Insufficient Stock Error)
+    else Sufficient Stock
+        API->>DB: Atomic Update (currentStock >= requested)
+        API->>DB: Create 'OUT' Stock Movements (Audit)
+        API->>DB: Update Challan Status to 'Confirmed'
+        API->>DB: COMMIT TRANSACTION
+        API-->>S: 200 OK (Challan Confirmed)
+    end
+    deactivate API
+```
+
+---
+
+## Role Matrix
+
+Access is strictly enforced at both the React UI level and the Express route level.
+
+| Role | Dashboard | Customers | Products | Stock Movements | Challans |
+|---|---|---|---|---|---|
+| **Admin** | Full Overview | Full Access | Full Access | Create / View | Create / Confirm / Cancel |
+| **Sales** | CRM & Sales Stats | Full Access | Read-Only | No Access | Create / Confirm / Cancel |
+| **Warehouse** | Inventory Stats | No Access | Full Access | Create / View | No Access |
+| **Accounts** | Challan Stats | No Access | No Access | No Access | Read-Only |
+
+---
+
+## API Overview
+
+*All routes (except login) require a valid `Authorization: Bearer <token>` header.*
+
+| Method | Endpoint | Purpose | Access |
+|---|---|---|---|
+| **Auth** |
+| `POST` | `/api/auth/login` | Authenticate and retrieve JWT | Public |
+| `GET` | `/api/auth/me` | Fetch active user profile | Authenticated |
+| **Dashboard** |
+| `GET` | `/api/dashboard/stats` | Retrieve aggregated dashboard metrics | Authenticated |
+| **Customers** |
+| `GET` | `/api/customers` | List customers (paginated, filtered) | Admin, Sales |
+| `POST` | `/api/customers` | Create a new customer lead/contact | Admin, Sales |
+| `GET` | `/api/customers/:id` | Fetch customer timeline and details | Admin, Sales |
+| `PUT` | `/api/customers/:id` | Update customer profile | Admin, Sales |
+| `POST` | `/api/customers/:id/notes` | Append a follow-up note to customer | Admin, Sales |
+| **Products** |
+| `GET` | `/api/products` | List catalog and stock levels | Admin, Sales, Warehouse |
+| `POST` | `/api/products` | Create a new product SKU | Admin, Warehouse |
+| `PUT` | `/api/products/:id` | Update product catalog details | Admin, Warehouse |
+| `GET` | `/api/products/:id` | Fetch product details & movement log | Admin, Sales, Warehouse |
+| `POST` | `/api/products/:id/movements`| Manually record an IN/OUT movement | Admin, Warehouse |
+| **Challans** |
+| `GET` | `/api/challans` | List challans (paginated, filtered) | Admin, Sales, Accounts |
+| `POST` | `/api/challans` | Draft a new sales challan | Admin, Sales |
+| `GET` | `/api/challans/:id` | View challan line items and snapshots | Admin, Sales, Accounts |
+| `PATCH`| `/api/challans/:id/confirm` | Confirm challan & atomic deduct stock | Admin, Sales |
+| `PATCH`| `/api/challans/:id/cancel` | Cancel challan & restore stock | Admin, Sales |
+
+---
 
 ## Project Structure
 
-```
+```text
 mini-erp-crm-portal/
-├── server/          # Express.js REST API
+├── client/                     # React + Vite Frontend
 │   ├── src/
-│   │   ├── config/       # DB connection, environment config
-│   │   ├── middleware/    # Auth, validation, error handling
-│   │   ├── modules/      # Feature modules (auth, customers, products, challans)
-│   │   └── utils/        # Helpers, response formatters
-│   └── prisma/           # Schema, migrations, seed
+│   │   ├── api/                # Axios client & typed API wrappers
+│   │   ├── components/         # Reusable UI (Layout, ErrorBoundary)
+│   │   ├── context/            # Auth & Toast React Contexts
+│   │   ├── pages/              # Route views (Dashboard, Customers, etc.)
+│   │   └── App.tsx             # React Router configuration
+│   └── .env                    # Client environment config
 │
-├── client/          # React + Vite frontend
-│   └── src/
-│       ├── api/          # API client functions
-│       ├── components/   # Shared UI components
-│       ├── context/      # Auth context
-│       ├── hooks/        # Custom hooks
-│       └── pages/        # Route-level pages
+├── server/                     # Node.js + Express Backend
+│   ├── prisma/
+│   │   ├── schema.prisma       # Database schema & relationships
+│   │   └── seed.ts             # Demo data population script
+│   ├── src/
+│   │   ├── config/             # DB initialization & env loading
+│   │   ├── middleware/         # Auth verification & Error handlers
+│   │   ├── modules/            # Domain logic (Controllers, Services, Zod schemas)
+│   │   └── server.ts           # Express bootstrapper
+│   └── tests/                  # Native node:test suite for business logic
 │
-└── README.md
+└── README.md                   # Project documentation
 ```
 
-## Prerequisites
-
-- **Node.js** >= 18.x
-- **PostgreSQL** >= 14.x (local or cloud — e.g., Neon, Supabase)
-- **npm** >= 9.x
+---
 
 ## Getting Started
 
-### 1. Clone the repository
+### Prerequisites
+- **Node.js** (v18.x or higher)
+- **PostgreSQL** (v14.x or higher — local or cloud hosted like Neon/Supabase)
 
+### 1. Clone & Install
 ```bash
-git clone <repo-url>
+git clone <repository-url>
 cd mini-erp-crm-portal
-```
 
-### 2. Set up the backend
-
-```bash
+# Install Backend Dependencies
 cd server
-
-# Install dependencies
 npm install
 
-# Create environment file
-cp .env.example .env
-# Edit .env and set your DATABASE_URL, JWT_SECRET, etc.
-
-# Run database migrations
-npx prisma migrate dev --name init
-
-# Generate Prisma client
-npx prisma generate
-
-# Seed the database with demo data
-npm run seed
-
-# Start the development server
-npm run dev
-# Server runs on http://localhost:5000
+# Install Frontend Dependencies
+cd ../client
+npm install
 ```
 
-### 3. Set up the frontend
+### 2. Environment Configuration
+**Backend (`server/.env`)**
+```env
+PORT=5001
+NODE_ENV=development
+DATABASE_URL=postgresql://user:password@localhost:5432/minierp
+JWT_SECRET=your_super_secret_jwt_key
+JWT_EXPIRES_IN=24h
+```
 
+**Frontend (`client/.env`)**
+```env
+VITE_API_URL=http://localhost:5001/api
+```
+
+### 3. Database Setup & Seeding
+From the `server/` directory, run:
 ```bash
-cd client
-
-# Install dependencies
-npm install
-
-# Create environment file
-cp .env.example .env
-
-# Start the development server
-npm run dev
-# Client runs on http://localhost:5173
+npx prisma migrate dev --name init
+npm run seed
 ```
 
-## Demo Credentials
+### 4. Run the Application
+Start the backend (from `server/`):
+```bash
+npm run dev
+```
 
-| Role | Email | Password |
+Start the frontend (from `client/`):
+```bash
+npm run dev
+```
+The frontend will be available at `http://localhost:5173`.
+
+---
+
+## Demo Accounts
+
+The `npm run seed` command provisions the database with test data and the following pre-configured user accounts (Password for all: `password123`):
+
+| Role | Email | Intended Usage |
 |---|---|---|
-| Admin | admin@erp.com | password123 |
-| Sales | sales@erp.com | password123 |
-| Warehouse | warehouse@erp.com | password123 |
-| Accounts | accounts@erp.com | password123 |
+| **Admin** | `admin@erp.com` | Full unrestricted testing |
+| **Sales** | `sales@erp.com` | CRM & Challan testing |
+| **Warehouse**| `warehouse@erp.com` | Inventory management testing |
+| **Accounts** | `accounts@erp.com` | Read-only reporting testing |
 
-## API Endpoints
+> *Note: These credentials are strictly for local development and demonstration purposes.*
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/auth/login` | Login, returns JWT |
-| `POST` | `/api/auth/register` | Register user (Admin only) |
-| `GET` | `/api/auth/me` | Current user profile |
-| `GET` | `/api/customers` | List customers (paginated, searchable) |
-| `POST` | `/api/customers` | Create customer |
-| `GET` | `/api/customers/:id` | Customer detail with notes |
-| `PUT` | `/api/customers/:id` | Update customer |
-| `POST` | `/api/customers/:id/notes` | Add follow-up note |
-| `GET` | `/api/products` | List products (paginated, searchable) |
-| `POST` | `/api/products` | Create product |
-| `PUT` | `/api/products/:id` | Update product |
-| `POST` | `/api/products/:id/stock-movements` | Record stock movement |
-| `GET` | `/api/products/:id/stock-movements` | Stock movement history |
-| `GET` | `/api/challans` | List challans (paginated, filterable) |
-| `POST` | `/api/challans` | Create challan with line items |
-| `GET` | `/api/challans/:id` | Challan detail with snapshots |
-| `PATCH` | `/api/challans/:id/confirm` | Confirm challan (deducts stock) |
-| `PATCH` | `/api/challans/:id/cancel` | Cancel challan |
+---
 
-## Environment Variables
+## Testing & Verification
 
-### Server (`server/.env`)
+The project includes strict verification checks:
 
-| Variable | Description | Default |
-|---|---|---|
-| `PORT` | API server port | `5000` |
-| `NODE_ENV` | Environment | `development` |
-| `DATABASE_URL` | PostgreSQL connection string | — |
-| `JWT_SECRET` | Secret key for JWT signing | — |
-| `JWT_EXPIRES_IN` | Token expiry duration | `24h` |
-| `CORS_ORIGIN` | Allowed frontend origin | `http://localhost:5173` |
+1. **Backend Concurrency Tests**: The server leverages the native `node:test` runner to validate transactional safety and atomic stock deductions during race conditions.
+   ```bash
+   # From the server/ directory
+   npx tsc --noEmit && npx tsx --test tests/*.test.ts
+   ```
+2. **TypeScript Compilation**: Both the client and server are strictly typed. The client build process (`npm run build`) runs `tsc -b` to guarantee zero type errors prior to bundling.
 
-### Client (`client/.env`)
+---
 
-| Variable | Description | Default |
-|---|---|---|
-| `VITE_API_URL` | Backend API base URL | `http://localhost:5000/api` |
+## Security Notes
+- **API Guarding**: Broad Express middleware validates the presence and signature of the JWT, while route-specific middlewares assert the user's role array.
+- **SQL Injection Prevention**: Prisma ORM is utilized exclusively, intrinsically protecting against SQL injection vulnerabilities.
+- **Environment Isolation**: Database URIs and JWT secrets are injected via `dotenv` and never committed to source control.
 
-## User Roles
-
-| Role | Access |
-|---|---|
-| **Admin** | Full access to all modules |
-| **Sales** | Customers, Challans |
-| **Warehouse** | Products, Inventory, Stock |
-| **Accounts** | Challans (view), Reports |
-
-## Assumptions
-
-1. This is an internal tool — no public registration. Only Admin can create users.
-2. JWT tokens are stored in `localStorage` on the client (acceptable for internal tools).
-3. Challan confirmation is transactional — all stock checks pass or the entire operation rolls back.
-4. Product data is snapshotted into challan items at creation time, not at confirmation time.
-5. Follow-up notes are append-only (no edit/delete).
-6. Challan number format: `CH-YYYYMMDD-XXXX` (auto-generated, sequential).
-
-## License
-
-This project was built as part of a technical assessment.
+---
+*Developed as a demonstration of robust full-stack architecture, API design, and transactional database integrity.*
