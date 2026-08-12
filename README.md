@@ -13,6 +13,15 @@ A full-stack enterprise resource planning (ERP) and customer relationship manage
 
 Wholesale distribution involves tight coupling between sales operations and warehouse inventory. This application bridges that gap by providing a unified, role-based dashboard where sales teams can manage clients and issue challans, while warehouse teams can monitor stock alerts and log inventory movements. The backend prioritizes data integrity, ensuring that stock deductions are strictly atomic and fully auditable.
 
+## 🌐 Live Production Links
+
+- **Live Application (Frontend):** https://mini-erp-crm-portal-one.vercel.app
+- **Live API Backend:** https://mini-erp-crm-api-q68t.onrender.com
+- **API Health Check:** https://mini-erp-crm-api-q68t.onrender.com/api/health
+- **Database:** Cloud PostgreSQL (Neon)
+
+> **Note:** The backend is hosted on Render's free tier and may take a few seconds to wake up after a period of inactivity.
+
 ## Key Features
 
 ### Authentication & RBAC
